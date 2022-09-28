@@ -1,0 +1,6 @@
+uvicorn
+fastapi
+pydantic
+jsonpickle
+cachetools
+orjson
