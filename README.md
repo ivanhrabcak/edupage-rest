@@ -9,7 +9,8 @@ $ uvicorn edupage-rest.main:app
 You can access the API documentation (swagger) by starting the API and going to `http://localhost:8000/docs`.
 
 # Warning
-This is far from production ready, it is only a starting point. It uses a global edupage object, so once someone logs in, everyone else using this API can access his account.
+This is far from production ready, it is only a starting point. It uses a global edupage object, so once someone logs in, everyone else using this API can access their account.
+
 It should be pretty use to edit my code to add authentication and switch account based on who's logged in.
 
 Checkout FastAPI: https://fastapi.tiangolo.com/
