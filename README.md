@@ -3,6 +3,7 @@ This is a starting point for creating a small API that allows you to get data fr
 
 # Run
 ```shell
+$ pip install -r requirements.txt
 $ uvicorn edupage-rest.main:app
 ```
 
