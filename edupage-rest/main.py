@@ -1,17 +1,17 @@
 from datetime import date, datetime
 from io import BytesIO
 from typing import Any
+from uuid import uuid4
 from cachetools.func import ttl_cache
 import orjson
 
-from .annotations import logged_in, returns_edupage_object
+from .annotations import authenticated, get_global_ttl_cache, logged_in, returns_edupage_object
 from .types import EdupageCredentials, Message, UsernameAndPassword
-from .edupage import get_edupage
 
 from fastapi import FastAPI, HTTPException, File
 from fastapi.responses import JSONResponse
 
-from edupage_api import EduStudentSkeleton
+from edupage_api import EduStudentSkeleton, Edupage
 from edupage_api.exceptions import BadCredentialsException, MissingDataException
 
 class ORJsonResponse(JSONResponse):
@@ -24,32 +24,39 @@ app = FastAPI(default_response_class=ORJsonResponse)
 
 @app.post("/authenticate")
 def authenticate(credentials: EdupageCredentials):
-    edupage = get_edupage()
+    edupage = Edupage()
     
     try:
         edupage.login(credentials.username, credentials.password, credentials.subdomain)
     except BadCredentialsException:
         raise HTTPException(status_code=401, detail="Invalid credentials")
+    
+    token = str(uuid4())
+    
+    get_global_ttl_cache()[token] = edupage
 
-    return {"response": "OK"}
+    return {"response": token}
 
 @app.post("/authenticate-auto")
 def authenticate_auto(credentials: UsernameAndPassword):
-    edupage = get_edupage()
+    edupage = Edupage()
 
     try:
         edupage.login_auto(credentials.username, credentials.password)
     except BadCredentialsException:
         raise HTTPException(status_code=401, detail="Invalid credentials")
+    
+    token = str(uuid4())
+    
+    get_global_ttl_cache()[token] = edupage
 
-    return {"response": "OK"}
+    return {"response": token}
 
 @app.get("/timetable")
 @logged_in
 @returns_edupage_object
-def get_timetable(date: date):
-    edupage = get_edupage()
-
+@authenticated
+def get_timetable(edupage: Edupage, date: date):
     if not edupage.is_logged_in:
         raise HTTPException(status_code=400, detail="You first have to log in")
     
@@ -57,20 +64,21 @@ def get_timetable(date: date):
 
 @app.get("/students")
 @logged_in
+@authenticated
 @returns_edupage_object
-def get_students():
-    return get_edupage().get_all_students()
+def get_students(edupage: Edupage):
+    return edupage.get_all_students()
 
 @app.get("/teachers")
 @logged_in
 @returns_edupage_object
-def get_teachers():
-    return get_edupage().get_teachers()
+@authenticated
+def get_teachers(edupage: Edupage):
+    return edupage.get_teachers()
 
 @app.post("/message")
-def send_message(message: Message):
-    edupage = get_edupage()
-
+@authenticated
+def send_message(edupage: Edupage, message: Message):
     students = edupage.get_all_students() + edupage.get_teachers()
     def find_person(id: int):
         person_list = list(
@@ -103,15 +111,17 @@ def send_message(message: Message):
 @app.get("/lunches")
 @logged_in
 @returns_edupage_object
-def get_lunches(date: date):
-    return get_edupage().get_lunches(date)
+@authenticated
+def get_lunches(edupage: Edupage, date: date):
+    return edupage.get_lunches(date)
 
 @app.post("/timeline")
 @logged_in
 @returns_edupage_object
 @ttl_cache(maxsize=20, ttl=100)
-def get_timeline(items_per_page: int, page: int):
-    timeline = get_edupage().get_notifications()
+@authenticated
+def get_timeline(edupage: Edupage, items_per_page: int, page: int):
+    timeline = edupage.get_notifications()
 
     output = []
     for i in range(page * items_per_page, page * items_per_page + items_per_page):
@@ -122,46 +132,53 @@ def get_timeline(items_per_page: int, page: int):
 @app.post("cloud-upload")
 @returns_edupage_object
 @logged_in
-def cloud_upload(file: bytes = File(default=None)):
+@authenticated
+def cloud_upload(edupage: Edupage, file: bytes = File(default=None)):
     if file is None:
         raise HTTPException(status_code=400, detail="No file sent!")
 
-    return get_edupage().cloud_upload(BytesIO(file))
+    return edupage.cloud_upload(BytesIO(file))
 
 @app.get("/grades")
 @returns_edupage_object
 @logged_in
-def get_grades():
-    return get_edupage().get_grades()
+@authenticated
+def get_grades(edupage: Edupage):
+    return edupage.get_grades()
 
 @app.get("/missing-teachers")
 @logged_in
 @returns_edupage_object
-def get_missing_teachers(date: date):
-    return get_edupage().get_missing_teachers(date)
+@authenticated
+def get_missing_teachers(edupage: Edupage, date: date):
+    return edupage.get_missing_teachers(date)
 
 @app.get("/timetable-changes")
 @returns_edupage_object
 @logged_in
-def get_timetable_changes(date: date):
-    return get_edupage().get_timetable_changes(date)
+@authenticated
+def get_timetable_changes(edupage: Edupage, date: date):
+    return edupage.get_timetable_changes(date)
 
 @app.get("/school-year")
 @logged_in
-def get_school_year():
-    return get_edupage().get_school_year()
+@authenticated
+def get_school_year(edupage: Edupage):
+    return edupage.get_school_year()
 
 @app.get("/foreign-timetable")
 @logged_in
 @returns_edupage_object
-def get_foreign_timetable(id: int, date: date):
+@authenticated
+def get_foreign_timetable(edupage: Edupage, id: int, date: date):
     try:
-        return get_edupage().get_foreign_timetable(id, date)
+        return edupage.get_foreign_timetable(id, date)
     except MissingDataException as e:
         raise HTTPException(status_code=404, detail=str(e))
 
 @app.get("/next-ringing")
 @logged_in
 @returns_edupage_object
-def get_next_ringing_time(datetime: datetime):
-    return get_edupage().get_next_ringing_time(datetime)
+@authenticated
+def get_next_ringing_time(edupage: Edupage, datetime: datetime):
+    return edupage.get_next_ringing_time(datetime)
