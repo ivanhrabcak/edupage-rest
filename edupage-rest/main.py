@@ -115,7 +115,7 @@ def send_message(edupage: Edupage, message: Message):
 def get_lunches(edupage: Edupage, date: date):
     return edupage.get_lunches(date)
 
-@app.post("/timeline")
+@app.get("/timeline")
 @logged_in
 @returns_edupage_object
 @ttl_cache(maxsize=20, ttl=100)
@@ -123,11 +123,17 @@ def get_lunches(edupage: Edupage, date: date):
 def get_timeline(edupage: Edupage, items_per_page: int, page: int):
     timeline = edupage.get_notifications()
 
-    output = []
-    for i in range(page * items_per_page, page * items_per_page + items_per_page):
-        output.append(timeline[i])
+    try:
+        output = []
+        for i in range(page * items_per_page, page * items_per_page + items_per_page):
+            output.append(timeline[i])
     
-    return output
+        return output
+    except IndexError:
+        if len(output) == 0:
+            raise HTTPException(status_code=204)
+        else:
+            return output
 
 @app.post("cloud-upload")
 @returns_edupage_object
