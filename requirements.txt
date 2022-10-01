@@ -4,3 +4,4 @@ pydantic
 jsonpickle
 cachetools
 orjson
+edupage_api

@@ -115,6 +115,24 @@ def send_message(edupage: Edupage, message: Message):
 def get_lunches(edupage: Edupage, date: date):
     return edupage.get_lunches(date)
 
+@app.post("/lunches")
+@logged_in
+@authenticated
+def change_lunch(edupage: Edupage, date: date, choice: int):
+    lunches = edupage.get_lunches(date)
+    lunches.choose(edupage, choice)
+
+    return {"response": "Ok"}
+
+@app.delete("/lunches")
+@logged_in
+@authenticated
+def cancel_lunch(edupage: Edupage, date: date):
+    lunches = edupage.get_lunches(date)
+    lunches.sign_off(edupage)
+    
+    return {"response": "Ok"}
+
 @app.get("/timeline")
 @logged_in
 @returns_edupage_object
